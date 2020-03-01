@@ -757,3 +757,42 @@ static void CHScopeReleased(id *sro)
 	CHProfileScopeWithString(([NSString stringWithFormat:args]))
 #define CHProfileScope() \
 	CHProfileScopeWithFormat(@CHStringify(__LINE__) " in %s", __FUNCTION__)
+
+#pragma mark -
+
+
+// Objective-C runtime hooking using CaptainHook:
+//   1. declare class using CHDeclareClass()
+//   2. load class using CHLoadClass() or CHLoadLateClass() in CHConstructor
+//   3. hook method using CHOptimizedMethod()
+//   4. register hook using CHHook() in CHConstructor
+//   5. (optionally) call old method using CHSuper()
+
+#ifndef MYLogName
+#define MYLogName ">>> [jiaxw]"
+#endif
+
+#define MYLog(args...)            NSLog(@MYLogName ": %@", [NSString stringWithFormat:args])
+
+static id objectIvarWithName(id obj, const char *name){
+    Ivar var = class_getInstanceVariable(object_getClass(obj), name);
+    return object_getIvar(obj, var);
+}
+
+/// call valueForKey: with objc_msgSend
+/// @param obj an instance of objc class.
+/// @param key the name of var
+static id objectValueForKey(id obj, NSString *key){
+    return ((id(*)(id, SEL, NSString*))objc_msgSend)(obj, @selector(valueForKey:), key);
+}
+
+
+/// get all ivars description of object
+/// @param obj object
+static NSString* objectIvarDescription(id obj){
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundeclared-selector"
+    return ((id(*)(id, SEL))objc_msgSend)(obj, @selector(_ivarDescription));
+//    printf("%s", [[desc description] UTF8String]);
+#pragma clang pop
+}
